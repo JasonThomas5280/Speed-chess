@@ -1,12 +1,22 @@
 // Settings panel. Board theme / sound / haptics apply immediately; time
 // control, strength and color take effect on the next new game (shown in UI).
 import { useState } from 'react'
-import type { BoardTheme, PlayerColorPref, Settings as SettingsT, TimeControl } from '../types'
+import type {
+  BoardTheme,
+  PlayerColorPref,
+  RatingState,
+  Settings as SettingsT,
+  TimeControl,
+} from '../types'
 import { TIME_PRESETS, tcEquals } from '../lib/time'
+import { formatRating } from '../lib/glicko'
+import { eloForLevel } from '../engine/botStrength'
 
 interface SettingsProps {
   settings: SettingsT
+  rating: RatingState
   onChange: (patch: Partial<SettingsT>) => void
+  onResetRating: () => void
   onClose: () => void
   onStartNewGame: () => void
 }
@@ -88,7 +98,14 @@ function Toggle({
   )
 }
 
-export function Settings({ settings, onChange, onClose, onStartNewGame }: SettingsProps) {
+export function Settings({
+  settings,
+  rating,
+  onChange,
+  onResetRating,
+  onClose,
+  onStartNewGame,
+}: SettingsProps) {
   const isCustomTc = !TIME_PRESETS.some((p) => tcEquals(p.tc, settings.timeControl))
   const [customInitial, setCustomInitial] = useState(String(settings.timeControl.initial))
   const [customInc, setCustomInc] = useState(String(settings.timeControl.increment))
@@ -157,7 +174,7 @@ export function Settings({ settings, onChange, onClose, onStartNewGame }: Settin
           </div>
         </Section>
 
-        <Section title={`Strength · level ${settings.skill}`}>
+        <Section title={`Strength · level ${settings.skill} · ~${eloForLevel(settings.skill)} Elo`}>
           <input
             type="range"
             min={1}
@@ -172,6 +189,36 @@ export function Settings({ settings, onChange, onClose, onStartNewGame }: Settin
             <span>Gentle</span>
             <span>Brutal</span>
           </div>
+        </Section>
+
+        <Section title="Estimated rating">
+          <div className="flex items-center justify-between rounded-lg bg-panel px-3 py-3 ring-1 ring-edge">
+            <div className="flex flex-col">
+              <span className="font-clock text-2xl font-bold text-ink">
+                {rating.games > 0 ? formatRating(rating, rating.games) : '—'}
+              </span>
+              <span className="text-[11px] text-muted">
+                {rating.games === 0
+                  ? 'Play a few games to calibrate'
+                  : `${rating.games} rated game${rating.games === 1 ? '' : 's'}${
+                      rating.games < 8 ? ' · provisional' : ''
+                    }`}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={onResetRating}
+              disabled={rating.games === 0}
+              className="min-h-[40px] rounded-lg bg-bg px-3 text-sm font-medium text-danger ring-1 ring-edge active:bg-edge disabled:opacity-40"
+            >
+              Reset
+            </button>
+          </div>
+          <p className="text-[11px] leading-relaxed text-muted">
+            A Glicko-2 estimate from your results vs the bot at its calibrated strength.
+            It needs several games to settle and reflects your blitz/bullet play, so treat
+            it as a ballpark — not an official rating.
+          </p>
         </Section>
 
         <Section title="Play as">

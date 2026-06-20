@@ -20,6 +20,10 @@ host.
   increment.
 - 🎨 Board themes, sound cues (Web Audio, synthesized — no audio files), and
   haptics (`navigator.vibrate`).
+- 📈 **Estimated rating**: a **Glicko-2** estimate (rating ± a confidence band)
+  from your results vs the bot, whose difficulty levels are calibrated to known
+  Elo via Stockfish's `UCI_Elo`. Shown on the result screen and in settings;
+  provisional until it settles, resettable, and honestly labelled a ballpark.
 - 🧘 **Deliberate friction**: a clean result screen with one-tap rematch — but no
   auto-requeue, and a neutral "games today" counter. Treats you like an adult.
 - 📲 **Installable + offline**: manifest, service worker, precached engine wasm.

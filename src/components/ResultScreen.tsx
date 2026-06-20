@@ -2,12 +2,15 @@
 // beat of stillness before rematch becomes tappable. One tap to play again — we
 // just don't auto-fire it or exploit the loop.
 import { useEffect, useState } from 'react'
-import type { Color, GameResult, DailyStats } from '../types'
+import type { Color, GameResult, DailyStats, RatingState } from '../types'
+import type { RatingUpdate } from '../lib/storage'
 
 interface ResultScreenProps {
   result: GameResult
   playerColor: Color
   stats: DailyStats
+  rating: RatingState
+  ratingChange: RatingUpdate | null
   onRematch: () => void
   onReview: () => void
   onSettings: () => void
@@ -28,6 +31,8 @@ export function ResultScreen({
   result,
   playerColor,
   stats,
+  rating,
+  ratingChange,
   onRematch,
   onReview,
   onSettings,
@@ -47,6 +52,13 @@ export function ResultScreen({
   const headlineColor =
     outcome === 'win' ? 'text-good' : outcome === 'loss' ? 'text-danger' : 'text-ink'
 
+  // rating delta from this game
+  const delta = ratingChange
+    ? Math.round(ratingChange.after.rating) - Math.round(ratingChange.before.rating)
+    : 0
+  const deltaText = delta > 0 ? `+${delta}` : `${delta}`
+  const deltaColor = delta > 0 ? 'text-good' : delta < 0 ? 'text-danger' : 'text-muted'
+
   return (
     <div
       className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-6 bg-bg/92 px-6 backdrop-blur-sm animate-fade-in"
@@ -58,6 +70,20 @@ export function ResultScreen({
         <h2 className={`text-4xl font-extrabold ${headlineColor}`}>{headline}</h2>
         <p className="mt-2 text-sm text-muted">{REASON_TEXT[result.reason]}</p>
       </div>
+
+      {ratingChange && (
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex items-baseline gap-2">
+            <span className="font-clock text-2xl font-bold text-ink">
+              {Math.round(ratingChange.after.rating)}
+            </span>
+            <span className={`text-sm font-semibold ${deltaColor}`}>{deltaText}</span>
+          </div>
+          <span className="text-[11px] uppercase tracking-wider text-muted">
+            {rating.games < 8 ? 'Estimated rating · provisional' : 'Estimated rating'}
+          </span>
+        </div>
+      )}
 
       <p className="text-xs text-muted">
         Game {stats.games} today · {stats.wins}W · {stats.draws}D · {stats.losses}L

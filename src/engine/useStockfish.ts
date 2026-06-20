@@ -2,25 +2,12 @@
 // translate "give me a move for this FEN" into UCI, and parse `bestmove` back
 // out. The worker keeps the engine off the main thread so the UI never freezes.
 import { useCallback, useEffect, useRef } from 'react'
+import { botConfig } from './botStrength'
 
 export interface BotMove {
   from: string
   to: string
   promotion?: 'q' | 'r' | 'b' | 'n'
-}
-
-/**
- * Map the friendly 1–10 strength dial to Stockfish's Skill Level (0–20) and a
- * blitz-appropriate think time. Snappy on purpose: even the strongest setting
- * caps think time low so the bot feels responsive, not ponderous.
- */
-export function mapSkill(skill: number): { skillLevel: number; movetime: number } {
-  const s = Math.min(10, Math.max(1, Math.round(skill)))
-  const t = (s - 1) / 9 // 0..1
-  return {
-    skillLevel: Math.round(t * 20), // 0..20
-    movetime: Math.round(150 + t * 450), // 150..600ms
-  }
 }
 
 function parseBestmove(line: string): BotMove | null {
@@ -93,10 +80,16 @@ export function useStockfish() {
         resolveRef.current?.(null)
         resolveRef.current = resolve
 
-        const { skillLevel, movetime } = mapSkill(skill)
-        worker.postMessage('setoption name Skill Level value ' + skillLevel)
+        const cfg = botConfig(skill)
+        if (cfg.limitStrength) {
+          worker.postMessage('setoption name UCI_LimitStrength value true')
+          worker.postMessage('setoption name UCI_Elo value ' + cfg.elo)
+        } else {
+          worker.postMessage('setoption name UCI_LimitStrength value false')
+          worker.postMessage('setoption name Skill Level value ' + cfg.skillLevel)
+        }
         worker.postMessage('position fen ' + fen)
-        worker.postMessage('go movetime ' + movetime)
+        worker.postMessage('go movetime ' + cfg.movetime)
       })
     },
     [],
