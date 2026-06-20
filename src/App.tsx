@@ -7,7 +7,17 @@ import { Settings } from './components/Settings'
 import { StatsBadge } from './components/StatsBadge'
 import { ChessState, otherColor, type Dests } from './engine/chessState'
 import { useStockfish } from './engine/useStockfish'
-import { loadSettings, loadStats, recordGame, saveSettings } from './lib/storage'
+import {
+  loadRating,
+  loadSettings,
+  loadStats,
+  recordGame,
+  recordRatedGame,
+  resetRating,
+  saveSettings,
+  type RatingUpdate,
+} from './lib/storage'
+import { eloForLevel } from './engine/botStrength'
 import { haptics, setHapticsEnabled } from './lib/haptics'
 import { setSoundEnabled, sound, unlock } from './lib/sound'
 import type { Color, GameResult, PlayerColorPref, Settings as SettingsT } from './types'
@@ -35,6 +45,8 @@ export default function App() {
 
   const [settings, setSettings] = useState<SettingsT>(() => loadSettings())
   const [stats, setStats] = useState(() => loadStats())
+  const [rating, setRating] = useState(() => loadRating())
+  const [ratingChange, setRatingChange] = useState<RatingUpdate | null>(null)
   const [view, setView] = useState<View>('board')
 
   const [started, setStarted] = useState(false)
@@ -57,6 +69,9 @@ export default function App() {
   const gameOverRef = useRef(false)
   const recordedRef = useRef(false)
   const thinkingRef = useRef(false)
+  // the difficulty level locked in at the start of the current game — used for
+  // the rating update so mid-game settings changes don't skew it
+  const gameLevelRef = useRef(settings.skill)
   const boardRef = useRef<BoardHandle>(null)
   const attemptPremoveRef = useRef(false)
   // forward-reference: the bot's async callback applies a move, but applyMove is
@@ -135,6 +150,9 @@ export default function App() {
             ? 'win'
             : 'loss'
       setStats(recordGame(outcome))
+      const update = recordRatedGame(outcome, eloForLevel(gameLevelRef.current))
+      setRating(update.after)
+      setRatingChange(update)
     }
     sound.gameEnd()
     haptics.gameEnd()
@@ -275,7 +293,10 @@ export default function App() {
     setThinking(false)
     setGameResult(null)
     setReviewing(false)
+    setRatingChange(null)
     setPromotion(null)
+    // lock in the difficulty for rating purposes
+    gameLevelRef.current = settings.skill
 
     const ms = settings.timeControl.initial * 1000
     clockRef.current = { white: ms, black: ms }
@@ -294,7 +315,15 @@ export default function App() {
       // the bot is white and opens the game
       triggerBot()
     }
-  }, [settings.colorPref, settings.timeControl.initial, stockfish, syncPosition, setActive, triggerBot])
+  }, [
+    settings.colorPref,
+    settings.timeControl.initial,
+    settings.skill,
+    stockfish,
+    syncPosition,
+    setActive,
+    triggerBot,
+  ])
 
   const handleResign = useCallback(() => {
     if (gameOverRef.current || !started) return
@@ -303,6 +332,11 @@ export default function App() {
 
   const updateSettings = useCallback((patch: Partial<SettingsT>) => {
     setSettings((s) => ({ ...s, ...patch }))
+  }, [])
+
+  const handleResetRating = useCallback(() => {
+    setRating(resetRating())
+    setRatingChange(null)
   }, [])
 
   // ----- derived render values -----
@@ -382,6 +416,8 @@ export default function App() {
             result={gameResult!}
             playerColor={playerColor}
             stats={stats}
+            rating={rating}
+            ratingChange={ratingChange}
             onRematch={startGame}
             onReview={() => setReviewing(true)}
             onSettings={() => setView('settings')}
@@ -401,7 +437,7 @@ export default function App() {
 
       {/* Stats + controls */}
       <div className="flex flex-col gap-2 px-4 pb-3 pt-2">
-        <StatsBadge stats={stats} />
+        <StatsBadge stats={stats} rating={rating} />
         <Controls
           playing={live}
           onResign={handleResign}
@@ -414,7 +450,9 @@ export default function App() {
       {view === 'settings' && (
         <Settings
           settings={settings}
+          rating={rating}
           onChange={updateSettings}
+          onResetRating={handleResetRating}
           onClose={() => setView('board')}
           onStartNewGame={startGame}
         />

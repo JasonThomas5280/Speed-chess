@@ -1,11 +1,13 @@
 // Typed localStorage access. All app persistence flows through here so keys and
 // shapes stay in one place. Everything degrades gracefully if storage is
 // unavailable (private mode, quota) — reads fall back to defaults.
-import type { DailyStats, Settings } from '../types'
+import type { DailyStats, RatingState, Settings } from '../types'
+import { DEFAULT_GLICKO, updateGlicko } from './glicko'
 
 const KEYS = {
   settings: 'sc.settings.v1',
   stats: 'sc.stats.v1',
+  rating: 'sc.rating.v1',
 } as const
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -72,4 +74,42 @@ export function recordGame(outcome: 'win' | 'loss' | 'draw'): DailyStats {
   }
   write(KEYS.stats, next)
   return next
+}
+
+// ---------- estimated rating (Glicko-2) ----------
+
+const DEFAULT_RATING: RatingState = { ...DEFAULT_GLICKO, games: 0 }
+
+// The bot's strength is calibrated, so it's a low-uncertainty opponent.
+const BOT_RD = 50
+
+export function loadRating(): RatingState {
+  return read<RatingState>(KEYS.rating, DEFAULT_RATING)
+}
+
+export function resetRating(): RatingState {
+  write(KEYS.rating, DEFAULT_RATING)
+  return DEFAULT_RATING
+}
+
+export interface RatingUpdate {
+  before: RatingState
+  after: RatingState
+}
+
+/**
+ * Update the player's estimated rating from one game's result.
+ * @param outcome  player result
+ * @param oppElo   the bot's calibrated Elo for the difficulty played
+ */
+export function recordRatedGame(
+  outcome: 'win' | 'loss' | 'draw',
+  oppElo: number,
+): RatingUpdate {
+  const before = loadRating()
+  const score = outcome === 'win' ? 1 : outcome === 'draw' ? 0.5 : 0
+  const g = updateGlicko(before, oppElo, BOT_RD, score)
+  const after: RatingState = { ...g, games: before.games + 1 }
+  write(KEYS.rating, after)
+  return { before, after }
 }

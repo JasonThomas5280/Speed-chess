@@ -45,3 +45,14 @@ export interface DailyStats {
   losses: number
   draws: number
 }
+
+export interface RatingState {
+  /** Glicko-2 rating on the Elo-like scale */
+  rating: number
+  /** rating deviation (± uncertainty) */
+  rd: number
+  /** Glicko-2 volatility */
+  vol: number
+  /** total rated games played */
+  games: number
+}
