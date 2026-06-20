@@ -1,0 +1,141 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  /* board square highlight tints (theme-agnostic, drawn over the squares) */
+  --hl-last: rgba(122, 162, 247, 0.35);
+  --hl-selected: rgba(122, 162, 247, 0.5);
+  --hl-premove: rgba(240, 107, 107, 0.45);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  /* lock the canvas; the app manages its own scroll regions */
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  margin: 0;
+  background: theme('colors.bg');
+  color: theme('colors.ink');
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* prevent the double-tap-zoom / text selection that ruins tap-to-move */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* honor safe areas on notched phones */
+#root {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ---- Accessible keyboard focus ---- */
+:focus-visible {
+  outline: 2px solid theme('colors.accent');
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* =========================================================================
+   Chessground board themes (board base + piece sets imported in main.tsx).
+   Squares are painted with a conic-gradient checkerboard so themes are pure
+   CSS and ship no extra image assets — keeps the offline bundle tiny.
+   ========================================================================= */
+.cg-wrap {
+  width: 100%;
+  height: 100%;
+}
+
+cg-board {
+  background-size: 25% 25%;
+}
+
+/* default + per-theme square colors */
+.board-brown cg-board {
+  background-color: #f0d9b5;
+  background-image: conic-gradient(
+    #b58863 0deg 90deg,
+    #f0d9b5 90deg 180deg,
+    #b58863 180deg 270deg,
+    #f0d9b5 270deg 360deg
+  );
+}
+.board-blue cg-board {
+  background-color: #dee3e6;
+  background-image: conic-gradient(
+    #8ca2ad 0deg 90deg,
+    #dee3e6 90deg 180deg,
+    #8ca2ad 180deg 270deg,
+    #dee3e6 270deg 360deg
+  );
+}
+.board-green cg-board {
+  background-color: #eeeed2;
+  background-image: conic-gradient(
+    #769656 0deg 90deg,
+    #eeeed2 90deg 180deg,
+    #769656 180deg 270deg,
+    #eeeed2 270deg 360deg
+  );
+}
+.board-slate cg-board {
+  background-color: #c6cdd6;
+  background-image: conic-gradient(
+    #5d6b85 0deg 90deg,
+    #c6cdd6 90deg 180deg,
+    #5d6b85 180deg 270deg,
+    #c6cdd6 270deg 360deg
+  );
+}
+
+/* ---- square highlights ---- */
+cg-board square.last-move {
+  background-color: var(--hl-last);
+}
+cg-board square.selected {
+  background-color: var(--hl-selected);
+}
+cg-board square.current-premove,
+cg-board square.premove-dest {
+  background-color: var(--hl-premove);
+}
+cg-board square.move-dest {
+  background: radial-gradient(rgba(20, 30, 50, 0.4) 19%, transparent 20%);
+}
+cg-board square.oc.move-dest {
+  /* destination occupied by an enemy piece (a capture) — ring it */
+  background: radial-gradient(
+    transparent 0%,
+    transparent 79%,
+    rgba(240, 107, 107, 0.7) 80%
+  );
+}
+cg-board square.check {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(240, 107, 107, 0.95) 0%,
+    rgba(240, 107, 107, 0.85) 25%,
+    rgba(240, 107, 107, 0) 90%
+  );
+}
+
+/* Respect reduced-motion: chessground animates via JS, but kill our CSS motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
